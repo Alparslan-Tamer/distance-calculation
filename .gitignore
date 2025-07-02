@@ -1,0 +1,10 @@
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.MP4
+*.AVI
+*.MOV
+*.MKV
+/models
+/videos

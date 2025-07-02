@@ -1,0 +1,26 @@
+# Core dependencies
+torch>=2.1.2
+torchvision>=0.16.2
+torchaudio>=2.1.2
+ultralytics>=8.3.161
+transformers>=4.53.0
+opencv-python>=4.8.1.78
+numpy>=1.24.3
+Pillow>=10.0.1
+
+# GUI
+PySide6>=6.9.1
+
+# Image processing
+kornia>=0.8.1
+einops>=0.8.1
+
+# Utilities
+tqdm>=4.67.1
+requests>=2.32.4
+Pillow>=10.0.1
+scipy>=1.15.3
+
+# Optional: For better performance
+# onnxruntime-gpu>=1.18.0  # Uncomment if you have GPU support
+# nvidia-cuda-runtime-cu11>=11.7.99  # Uncomment if you have CUDA support 
