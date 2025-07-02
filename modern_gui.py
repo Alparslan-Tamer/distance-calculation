@@ -335,26 +335,7 @@ class ProcessingThread(QThread):
                                       (mid_x + offset_x - text_width//2, mid_y + offset_y + text_height//2), 
                                       cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 0), 4)  # Yellow text
                         
-                        # Add summary information at the top
-                        summary_text = f'Actual Perimeter: {total_distance:.1f}cm | Approx: {corner_total_distance:.1f}cm | Corners: {len(corner_points)}'
-                        (text_width, text_height), _ = cv2.getTextSize(summary_text, cv2.FONT_HERSHEY_SIMPLEX, 1.0, 3)
-                        
-                        # Background for summary
-                        cv2.rectangle(result_frame, 
-                                    (10, 10), 
-                                    (10 + text_width + 20, 10 + text_height + 20), 
-                                    (0, 0, 0), -1)
-                        
-                        # Summary text
-                        cv2.putText(result_frame, summary_text, 
-                                  (20, 30), 
-                                  cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 3)
-                        
-                        # Add pixel/cm ratio info
-                        ratio_text = f'Scale: {self.settings["pixel_cm_ratio"]:.2f} px/cm'
-                        cv2.putText(result_frame, ratio_text, 
-                                  (20, 70), 
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2)
+                        # Summary information removed - only shown in side panel
                         
                         measurements = {
                             'corners': len(corner_points),
@@ -369,6 +350,7 @@ class ProcessingThread(QThread):
 class ModernObjectDetectionApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        
         self.setWindowTitle("Modern Object Detection & Measurement")
         self.setGeometry(100, 100, 1400, 900)
         
@@ -389,7 +371,7 @@ class ModernObjectDetectionApp(QMainWindow):
         self.settings = {
             'confidence': 0.8,
             'contour_threshold': 100,
-            'epsilon': 0.02,
+            'epsilon': 0.015,
             'pixel_cm_ratio': 0.25
         }
         
@@ -495,36 +477,60 @@ class ModernObjectDetectionApp(QMainWindow):
         settings_layout = QGridLayout(settings_group)
         
         # Confidence slider
-        settings_layout.addWidget(QLabel("Confidence:"), 0, 0)
+        conf_label = QLabel("Confidence:")
+        conf_label.setToolTip("Object detection confidence threshold\nLow value: Detects more objects (may increase false positives)\nHigh value: Only detects certain objects (some objects may be missed)")
+        settings_layout.addWidget(conf_label, 0, 0)
         self.confidence_slider = QSlider(Qt.Horizontal)
         self.confidence_slider.setRange(10, 100)
         self.confidence_slider.setValue(80)
         self.confidence_slider.valueChanged.connect(self.update_confidence)
+        self.confidence_slider.setToolTip("Object detection confidence threshold (0.10-1.00)")
         settings_layout.addWidget(self.confidence_slider, 0, 1)
+        self.confidence_value_label = QLabel("0.80")
+        self.confidence_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
+        settings_layout.addWidget(self.confidence_value_label, 0, 2)
         
         # Contour threshold slider
-        settings_layout.addWidget(QLabel("Contour Threshold:"), 1, 0)
+        contour_label = QLabel("Contour Threshold:")
+        contour_label.setToolTip("Minimum area threshold for contours\nLow value: Detects small objects too (may increase noise)\nHigh value: Only detects large objects (small details may be lost)")
+        settings_layout.addWidget(contour_label, 1, 0)
         self.contour_slider = QSlider(Qt.Horizontal)
         self.contour_slider.setRange(10, 1000)
         self.contour_slider.setValue(100)
         self.contour_slider.valueChanged.connect(self.update_contour_threshold)
+        self.contour_slider.setToolTip("Minimum area threshold for contours (10-1000 pixels)")
         settings_layout.addWidget(self.contour_slider, 1, 1)
+        self.contour_value_label = QLabel("100")
+        self.contour_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
+        settings_layout.addWidget(self.contour_value_label, 1, 2)
         
         # Epsilon slider
-        settings_layout.addWidget(QLabel("Corner Detection:"), 2, 0)
+        epsilon_label = QLabel("Corner Detection:")
+        epsilon_label.setToolTip("Corner detection sensitivity\nLow value: More sensitive, detects many corners (detailed shapes)\nHigh value: Less sensitive, detects fewer corners (general shape)")
+        settings_layout.addWidget(epsilon_label, 2, 0)
         self.epsilon_slider = QSlider(Qt.Horizontal)
-        self.epsilon_slider.setRange(1, 10)
-        self.epsilon_slider.setValue(2)
+        self.epsilon_slider.setRange(5, 50)
+        self.epsilon_slider.setValue(15)
         self.epsilon_slider.valueChanged.connect(self.update_epsilon)
+        self.epsilon_slider.setToolTip("Corner detection sensitivity (0.005-0.050)")
         settings_layout.addWidget(self.epsilon_slider, 2, 1)
+        self.epsilon_value_label = QLabel("0.015")
+        self.epsilon_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
+        settings_layout.addWidget(self.epsilon_value_label, 2, 2)
         
         # Pixel to cm ratio slider
-        settings_layout.addWidget(QLabel("Pixel/CM Ratio:"), 3, 0)
+        ratio_label = QLabel("Pixel/CM Ratio:")
+        ratio_label.setToolTip("Pixel to centimeter conversion ratio\nLow value: Larger measurements (1 pixel = more cm)\nHigh value: Smaller measurements (1 pixel = less cm)\nExample: 0.25 = 1 pixel = 0.25 cm")
+        settings_layout.addWidget(ratio_label, 3, 0)
         self.ratio_slider = QSlider(Qt.Horizontal)
         self.ratio_slider.setRange(10, 100)
         self.ratio_slider.setValue(25)
         self.ratio_slider.valueChanged.connect(self.update_pixel_cm_ratio)
+        self.ratio_slider.setToolTip("Pixel to centimeter conversion ratio (0.10-1.00)")
         settings_layout.addWidget(self.ratio_slider, 3, 1)
+        self.ratio_value_label = QLabel("0.25")
+        self.ratio_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
+        settings_layout.addWidget(self.ratio_value_label, 3, 2)
         
         right_panel.addWidget(settings_group)
         
@@ -585,11 +591,18 @@ class ModernObjectDetectionApp(QMainWindow):
                 border-radius: 5px;
                 margin-top: 10px;
                 padding-top: 10px;
+                color: #ffffff;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px 0 5px;
+                color: #ffffff;
+            }
+            
+            QLabel {
+                color: #ffffff;
+                font-size: 13px;
             }
             QSlider::groove:horizontal {
                 border: 1px solid #999999;
@@ -613,6 +626,11 @@ class ModernObjectDetectionApp(QMainWindow):
             QProgressBar::chunk {
                 background-color: #4a90e2;
                 border-radius: 3px;
+            }
+            QStatusBar {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                border-top: 1px solid #666;
             }
         """)
     
@@ -706,7 +724,7 @@ class ModernObjectDetectionApp(QMainWindow):
     def calculate_measurements(self):
         """Calculate object measurements"""
         if self.current_frame is None:
-            self.statusBar().showMessage("No frame available")
+            self.statusBar().showMessage("No frame available for calculation")
             return
         
         if self.yolo_model is None:
@@ -754,7 +772,7 @@ class ModernObjectDetectionApp(QMainWindow):
             <div style='background-color: #2d2d2d; padding: 15px; border-radius: 8px;'>
                 <h3 style='color: #4a90e2; margin: 0 0 10px 0;'>Measurement Results</h3>
                 
-                <div style='background-color: #3d3d3d; padding: 10px; border-radius: 5px; margin: 10px 0;'>
+                <div style='background-color: #3d3d3d; padding: 10px; border-radius: 5px; margin: 10px 0; line-height: 1.6;'>
                     <b style='color: #ffffff;'>Summary:</b><br>
                     • <span style='color: #4a90e2;'>Corners:</span> {measurements['corners']}<br>
                     • <span style='color: #4a90e2;'>Segments:</span> {measurements['segments']}<br>
@@ -762,7 +780,7 @@ class ModernObjectDetectionApp(QMainWindow):
                     • <span style='color: #4a90e2;'>Scale:</span> {self.settings['pixel_cm_ratio']:.2f} px/cm
                 </div>
                 
-                <div style='background-color: #3d3d3d; padding: 10px; border-radius: 5px;'>
+                <div style='background-color: #3d3d3d; padding: 10px; border-radius: 5px; line-height: 1.6;'>
                     <b style='color: #ffffff;'>Corner Segment Details:</b><br>
             """
             
@@ -772,7 +790,7 @@ class ModernObjectDetectionApp(QMainWindow):
             result_text += "</div></div>"
             
             self.results_label.setText(result_text)
-            self.statusBar().showMessage("Processing completed successfully")
+            self.statusBar().showMessage("Measurements calculated")
     
     def update_progress(self, value):
         """Update progress bar"""
@@ -781,19 +799,24 @@ class ModernObjectDetectionApp(QMainWindow):
     def update_confidence(self, value):
         """Update confidence setting"""
         self.settings['confidence'] = value / 100.0
+        self.confidence_value_label.setText(f"{value / 100.0:.2f}")
     
     def update_contour_threshold(self, value):
         """Update contour threshold setting"""
         self.settings['contour_threshold'] = value
+        self.contour_value_label.setText(f"{value}")
     
     def update_epsilon(self, value):
         """Update epsilon setting"""
-        self.settings['epsilon'] = value / 100.0
+        self.settings['epsilon'] = value / 1000.0
+        self.epsilon_value_label.setText(f"{value / 1000.0:.3f}")
     
     def update_pixel_cm_ratio(self, value):
         """Update pixel to cm ratio setting"""
         self.settings['pixel_cm_ratio'] = value / 100.0
+        self.ratio_value_label.setText(f"{value / 100.0:.2f}")
     
+
     def closeEvent(self, event):
         """Handle application close"""
         self.stop_video()
