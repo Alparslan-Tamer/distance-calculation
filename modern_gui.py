@@ -372,7 +372,7 @@ class ModernObjectDetectionApp(QMainWindow):
             'confidence': 0.8,
             'contour_threshold': 100,
             'epsilon': 0.015,
-            'pixel_cm_ratio': 0.25
+            'pixel_cm_ratio': 0.061  # DJI Osmo Pocket 3 @ 87.6cm height (calibrated)
         }
         
         self.setup_ui()
@@ -520,15 +520,15 @@ class ModernObjectDetectionApp(QMainWindow):
         
         # Pixel to cm ratio slider
         ratio_label = QLabel("Pixel/CM Ratio:")
-        ratio_label.setToolTip("Pixel to centimeter conversion ratio\nLow value: Larger measurements (1 pixel = more cm)\nHigh value: Smaller measurements (1 pixel = less cm)\nExample: 0.25 = 1 pixel = 0.25 cm")
+        ratio_label.setToolTip("Pixel to centimeter conversion ratio\nLow value: Larger measurements (1 pixel = more cm)\nHigh value: Smaller measurements (1 pixel = less cm)\nDJI Osmo Pocket 3 @ 87.6cm: 0.061 = 1 pixel = 0.061 cm")
         settings_layout.addWidget(ratio_label, 3, 0)
         self.ratio_slider = QSlider(Qt.Horizontal)
-        self.ratio_slider.setRange(10, 100)
-        self.ratio_slider.setValue(25)
+        self.ratio_slider.setRange(5, 100)  # Lower minimum for DJI Osmo Pocket 3
+        self.ratio_slider.setValue(6)  # 0.061 * 100 ≈ 6
         self.ratio_slider.valueChanged.connect(self.update_pixel_cm_ratio)
-        self.ratio_slider.setToolTip("Pixel to centimeter conversion ratio (0.10-1.00)")
+        self.ratio_slider.setToolTip("Pixel to centimeter conversion ratio (0.05-1.00)\nDJI Osmo Pocket 3 @ 87.6cm height: ~6 (0.061)")
         settings_layout.addWidget(self.ratio_slider, 3, 1)
-        self.ratio_value_label = QLabel("0.25")
+        self.ratio_value_label = QLabel("0.061")
         self.ratio_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
         settings_layout.addWidget(self.ratio_value_label, 3, 2)
         
