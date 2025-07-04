@@ -14,7 +14,8 @@ from PIL import Image
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QPushButton, QLabel, QSlider, QFileDialog,
-                               QProgressBar, QFrame, QGridLayout, QGroupBox)
+                               QProgressBar, QFrame, QGridLayout, QGroupBox, QTabWidget,
+                               QSplitter, QScrollArea)
 from PySide6.QtCore import Qt, QTimer, Signal, QThread
 from PySide6.QtGui import QPixmap, QImage, QFont, QPalette, QColor
 
@@ -351,8 +352,8 @@ class ModernObjectDetectionApp(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        self.setWindowTitle("Modern Object Detection & Measurement")
-        self.setGeometry(100, 100, 1400, 900)
+        self.setWindowTitle("Modern Object Detection & Measurement - Dual Screen")
+        self.setGeometry(100, 100, 1800, 1000)
         
         # Initialize models
         self.yolo_model = None
@@ -420,35 +421,61 @@ class ModernObjectDetectionApp(QMainWindow):
             print(f"Error loading models: {e}")
     
     def setup_ui(self):
-        """Setup the user interface"""
+        """Setup the user interface with dual screens"""
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
         # Main layout
         main_layout = QHBoxLayout(central_widget)
         
-        # Left panel - Video display
-        left_panel = QVBoxLayout()
+        # Create splitter for dual screens
+        splitter = QSplitter(Qt.Horizontal)
+        
+        # Left screen - Live Video Stream
+        left_screen = self.create_live_screen()
+        splitter.addWidget(left_screen)
+        
+        # Right screen - Measurement Results
+        right_screen = self.create_measurement_screen()
+        splitter.addWidget(right_screen)
+        
+        # Set splitter proportions (50% live, 50% measurements) - Sağ ekran için daha fazla yer
+        splitter.setSizes([900, 900])
+        
+        main_layout.addWidget(splitter)
+        
+        # Status bar
+        self.statusBar().showMessage("Ready")
+    
+    def create_live_screen(self):
+        """Create the live video streaming screen"""
+        live_widget = QWidget()
+        live_layout = QVBoxLayout(live_widget)
+        
+        # Title - daha kompakt
+        title_label = QLabel("📹 Live Stream")
+        title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #4a90e2; padding: 5px;")
+        title_label.setAlignment(Qt.AlignCenter)
+        live_layout.addWidget(title_label)
         
         # Video display
-        self.video_label = QLabel()
-        self.video_label.setMinimumSize(640, 480)
-        self.video_label.setStyleSheet("border: 2px solid #666; background-color: #000;")
-        self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setText("No Video")
-        
-        left_panel.addWidget(self.video_label)
+        self.live_video_label = QLabel()
+        self.live_video_label.setMinimumSize(640, 480)
+        self.live_video_label.setStyleSheet("border: 3px solid #4a90e2; background-color: #000; border-radius: 10px;")
+        self.live_video_label.setAlignment(Qt.AlignCenter)
+        self.live_video_label.setText("No Video Stream")
+        live_layout.addWidget(self.live_video_label)
         
         # Video controls
         video_controls = QHBoxLayout()
         
-        self.webcam_btn = QPushButton("Webcam")
+        self.webcam_btn = QPushButton("🎥 Webcam")
         self.webcam_btn.clicked.connect(self.open_webcam)
         
-        self.load_video_btn = QPushButton("Load Video")
+        self.load_video_btn = QPushButton("📁 Load Video")
         self.load_video_btn.clicked.connect(self.load_video)
         
-        self.stop_btn = QPushButton("Stop")
+        self.stop_btn = QPushButton("⏹️ Stop")
         self.stop_btn.clicked.connect(self.stop_video)
         
         video_controls.addWidget(self.webcam_btn)
@@ -456,35 +483,20 @@ class ModernObjectDetectionApp(QMainWindow):
         video_controls.addWidget(self.stop_btn)
         video_controls.addStretch()
         
-        left_panel.addLayout(video_controls)
-        
-        # Right panel - Controls and results
-        right_panel = QVBoxLayout()
-        
-        # Calculate button
-        self.calculate_btn = QPushButton("Calculate Measurements")
-        self.calculate_btn.setMinimumHeight(50)
-        self.calculate_btn.clicked.connect(self.calculate_measurements)
-        right_panel.addWidget(self.calculate_btn)
-        
-        # Progress bar
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        right_panel.addWidget(self.progress_bar)
+        live_layout.addLayout(video_controls)
         
         # Settings group
-        settings_group = QGroupBox("Settings")
+        settings_group = QGroupBox("⚙️ Detection Settings")
         settings_layout = QGridLayout(settings_group)
         
         # Confidence slider
         conf_label = QLabel("Confidence:")
-        conf_label.setToolTip("Object detection confidence threshold\nLow value: Detects more objects (may increase false positives)\nHigh value: Only detects certain objects (some objects may be missed)")
+        conf_label.setToolTip("Object detection confidence threshold")
         settings_layout.addWidget(conf_label, 0, 0)
         self.confidence_slider = QSlider(Qt.Horizontal)
         self.confidence_slider.setRange(10, 100)
         self.confidence_slider.setValue(80)
         self.confidence_slider.valueChanged.connect(self.update_confidence)
-        self.confidence_slider.setToolTip("Object detection confidence threshold (0.10-1.00)")
         settings_layout.addWidget(self.confidence_slider, 0, 1)
         self.confidence_value_label = QLabel("0.80")
         self.confidence_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
@@ -492,13 +504,11 @@ class ModernObjectDetectionApp(QMainWindow):
         
         # Contour threshold slider
         contour_label = QLabel("Contour Threshold:")
-        contour_label.setToolTip("Minimum area threshold for contours\nLow value: Detects small objects too (may increase noise)\nHigh value: Only detects large objects (small details may be lost)")
         settings_layout.addWidget(contour_label, 1, 0)
         self.contour_slider = QSlider(Qt.Horizontal)
         self.contour_slider.setRange(10, 1000)
         self.contour_slider.setValue(100)
         self.contour_slider.valueChanged.connect(self.update_contour_threshold)
-        self.contour_slider.setToolTip("Minimum area threshold for contours (10-1000 pixels)")
         settings_layout.addWidget(self.contour_slider, 1, 1)
         self.contour_value_label = QLabel("100")
         self.contour_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
@@ -506,13 +516,11 @@ class ModernObjectDetectionApp(QMainWindow):
         
         # Epsilon slider
         epsilon_label = QLabel("Corner Detection:")
-        epsilon_label.setToolTip("Corner detection sensitivity\nLow value: More sensitive, detects many corners (detailed shapes)\nHigh value: Less sensitive, detects fewer corners (general shape)")
         settings_layout.addWidget(epsilon_label, 2, 0)
         self.epsilon_slider = QSlider(Qt.Horizontal)
         self.epsilon_slider.setRange(5, 50)
         self.epsilon_slider.setValue(15)
         self.epsilon_slider.valueChanged.connect(self.update_epsilon)
-        self.epsilon_slider.setToolTip("Corner detection sensitivity (0.005-0.050)")
         settings_layout.addWidget(self.epsilon_slider, 2, 1)
         self.epsilon_value_label = QLabel("0.015")
         self.epsilon_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
@@ -520,49 +528,83 @@ class ModernObjectDetectionApp(QMainWindow):
         
         # Pixel to cm ratio slider
         ratio_label = QLabel("Pixel/CM Ratio:")
-        ratio_label.setToolTip("Pixel to centimeter conversion ratio\nLow value: Larger measurements (1 pixel = more cm)\nHigh value: Smaller measurements (1 pixel = less cm)\nDJI Osmo Pocket 3 @ 87.6cm: 0.061 = 1 pixel = 0.061 cm")
         settings_layout.addWidget(ratio_label, 3, 0)
         self.ratio_slider = QSlider(Qt.Horizontal)
-        self.ratio_slider.setRange(5, 100)  # Lower minimum for DJI Osmo Pocket 3
-        self.ratio_slider.setValue(6)  # 0.061 * 100 ≈ 6
+        self.ratio_slider.setRange(5, 100)
+        self.ratio_slider.setValue(6)
         self.ratio_slider.valueChanged.connect(self.update_pixel_cm_ratio)
-        self.ratio_slider.setToolTip("Pixel to centimeter conversion ratio (0.05-1.00)\nDJI Osmo Pocket 3 @ 87.6cm height: ~6 (0.061)")
         settings_layout.addWidget(self.ratio_slider, 3, 1)
         self.ratio_value_label = QLabel("0.061")
         self.ratio_value_label.setStyleSheet("color: #ffd700; font-weight: bold; min-width: 40px;")
         settings_layout.addWidget(self.ratio_value_label, 3, 2)
         
-        right_panel.addWidget(settings_group)
+        live_layout.addWidget(settings_group)
         
-        # Results group
-        results_group = QGroupBox("Results")
-        results_layout = QVBoxLayout(results_group)
+        return live_widget
+    
+    def create_measurement_screen(self):
+        """Create the measurement results screen"""
+        measurement_widget = QWidget()
+        measurement_layout = QVBoxLayout(measurement_widget)
         
+        # Title - daha kompakt
+        title_label = QLabel("📏 Measurements")
+        title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #4a90e2; padding: 5px;")
+        title_label.setAlignment(Qt.AlignCenter)
+        measurement_layout.addWidget(title_label)
+        
+        # Processed frame display - daha büyük
+        self.processed_frame_label = QLabel()
+        self.processed_frame_label.setMinimumSize(700, 550)  # Daha da büyük minimum boyut
+        self.processed_frame_label.setStyleSheet("border: 3px solid #4CAF50; background-color: #000; border-radius: 10px;")
+        self.processed_frame_label.setAlignment(Qt.AlignCenter)
+        self.processed_frame_label.setText("No measurements yet")
+        measurement_layout.addWidget(self.processed_frame_label)
+        
+        # Calculate button - aşağıda
+        self.calculate_btn = QPushButton("🔍 Calculate")
+        self.calculate_btn.setMinimumHeight(40)
+        self.calculate_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        self.calculate_btn.clicked.connect(self.calculate_measurements)
+        measurement_layout.addWidget(self.calculate_btn)
+        
+        # Progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        measurement_layout.addWidget(self.progress_bar)
+        
+        # Results display
         self.results_label = QLabel("""
         <div style='background-color: #2d2d2d; padding: 15px; border-radius: 8px;'>
             <h3 style='color: #4a90e2; margin: 0 0 10px 0;'>Ready to Measure</h3>
             <p style='color: #cccccc; margin: 0;'>
-                1. Open webcam or load a video<br>
+                1. Start video stream on the left<br>
                 2. Adjust settings if needed<br>
                 3. Click "Calculate Measurements"<br>
-                4. View results here and on the image
+                4. View results here
             </p>
         </div>
         """)
         self.results_label.setWordWrap(True)
         self.results_label.setTextFormat(Qt.RichText)
-        results_layout.addWidget(self.results_label)
         
-        right_panel.addWidget(results_group)
+        # Create scrollable area for results - daha kompakt
+        scroll_area = QScrollArea()
+        scroll_area.setWidget(self.results_label)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setMaximumHeight(150)  # Daha da az yer kaplaması için yüksekliği azalttık
+        measurement_layout.addWidget(scroll_area)
         
-        right_panel.addStretch()
-        
-        # Add panels to main layout
-        main_layout.addLayout(left_panel, 2)
-        main_layout.addLayout(right_panel, 1)
-        
-        # Status bar
-        self.statusBar().showMessage("Ready")
+        return measurement_widget
     
     def setup_styles(self):
         """Setup modern styling"""
@@ -599,7 +641,6 @@ class ModernObjectDetectionApp(QMainWindow):
                 padding: 0 5px 0 5px;
                 color: #ffffff;
             }
-            
             QLabel {
                 color: #ffffff;
                 font-size: 13px;
@@ -632,13 +673,18 @@ class ModernObjectDetectionApp(QMainWindow):
                 color: #ffffff;
                 border-top: 1px solid #666;
             }
+            QScrollArea {
+                border: 1px solid #666;
+                border-radius: 5px;
+                background-color: #2d2d2d;
+            }
         """)
     
     def open_webcam(self):
         """Open webcam"""
         self.stop_video()
         self.video_thread = VideoThread(0)
-        self.video_thread.frame_ready.connect(self.update_video_frame)
+        self.video_thread.frame_ready.connect(self.update_live_frame)
         self.video_thread.start()
         self.statusBar().showMessage("Webcam opened")
     
@@ -675,20 +721,13 @@ class ModernObjectDetectionApp(QMainWindow):
             self.cap = None
         
         self.current_frame = None
-        self.last_processed_frame = None  # Clear processed frame
-        self.last_measurements = None     # Clear measurements
-        self.video_label.setText("No Video")
+        self.live_video_label.setText("No Video Stream")
         self.statusBar().showMessage("Video stopped")
     
-    def update_video_frame(self, frame):
-        """Update video frame from thread"""
+    def update_live_frame(self, frame):
+        """Update live video frame from thread"""
         self.current_frame = frame
-        
-        # If we have a processed frame, show it instead of raw frame
-        if self.last_processed_frame is not None:
-            self.display_frame(self.last_processed_frame)
-        else:
-            self.display_frame(frame)
+        self.display_live_frame(frame)
     
     def read_video_frame(self):
         """Read frame from video file"""
@@ -696,17 +735,12 @@ class ModernObjectDetectionApp(QMainWindow):
             ret, frame = self.cap.read()
             if ret:
                 self.current_frame = frame
-                
-                # If we have a processed frame, show it instead of raw frame
-                if self.last_processed_frame is not None:
-                    self.display_frame(self.last_processed_frame)
-                else:
-                    self.display_frame(frame)
+                self.display_live_frame(frame)
             else:
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     
-    def display_frame(self, frame):
-        """Display frame on label"""
+    def display_live_frame(self, frame):
+        """Display frame on live video label"""
         if frame is None:
             return
         
@@ -717,9 +751,25 @@ class ModernObjectDetectionApp(QMainWindow):
         
         # Scale to fit label
         pixmap = QPixmap.fromImage(q_image)
-        scaled_pixmap = pixmap.scaled(self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        scaled_pixmap = pixmap.scaled(self.live_video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         
-        self.video_label.setPixmap(scaled_pixmap)
+        self.live_video_label.setPixmap(scaled_pixmap)
+    
+    def display_processed_frame(self, frame):
+        """Display processed frame on measurement screen"""
+        if frame is None:
+            return
+        
+        # Convert frame to QPixmap
+        height, width, channel = frame.shape
+        bytes_per_line = 3 * width
+        q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+        
+        # Scale to fit label
+        pixmap = QPixmap.fromImage(q_image)
+        scaled_pixmap = pixmap.scaled(self.processed_frame_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        
+        self.processed_frame_label.setPixmap(scaled_pixmap)
     
     def calculate_measurements(self):
         """Calculate object measurements"""
@@ -758,30 +808,31 @@ class ModernObjectDetectionApp(QMainWindow):
         
         if 'error' in measurements:
             self.results_label.setText(f"Error: {measurements['error']}")
+            self.processed_frame_label.setText("Processing failed")
             self.statusBar().showMessage("Processing failed")
         else:
             # Store the processed frame and measurements
             self.last_processed_frame = result_frame.copy()
             self.last_measurements = measurements
             
-            # Display result frame
-            self.display_frame(result_frame)
+            # Display result frame on measurement screen
+            self.display_processed_frame(result_frame)
             
             # Update results with more detailed information
             result_text = f"""
             <div style='background-color: #2d2d2d; padding: 15px; border-radius: 8px;'>
-                <h3 style='color: #4a90e2; margin: 0 0 10px 0;'>Measurement Results</h3>
+                <h3 style='color: #4a90e2; margin: 0 0 10px 0;'>📏 Measurement Results</h3>
                 
                 <div style='background-color: #3d3d3d; padding: 10px; border-radius: 5px; margin: 10px 0; line-height: 1.6;'>
-                    <b style='color: #ffffff;'>Summary:</b><br>
+                    <b style='color: #ffffff;'>📊 Summary:</b><br>
                     • <span style='color: #4a90e2;'>Corners:</span> {measurements['corners']}<br>
                     • <span style='color: #4a90e2;'>Segments:</span> {measurements['segments']}<br>
                     • <span style='color: #4a90e2;'>Actual Perimeter:</span> <b style='color: #ffd700;'>{measurements['total_perimeter']:.1f} cm</b><br>
-                    • <span style='color: #4a90e2;'>Scale:</span> {self.settings['pixel_cm_ratio']:.2f} px/cm
+                    • <span style='color: #4a90e2;'>Scale:</span> {self.settings['pixel_cm_ratio']:.3f} px/cm
                 </div>
                 
                 <div style='background-color: #3d3d3d; padding: 10px; border-radius: 5px; line-height: 1.6;'>
-                    <b style='color: #ffffff;'>Corner Segment Details:</b><br>
+                    <b style='color: #ffffff;'>📐 Corner Segment Details:</b><br>
             """
             
             for i, distance in enumerate(measurements['distances']):
@@ -790,7 +841,7 @@ class ModernObjectDetectionApp(QMainWindow):
             result_text += "</div></div>"
             
             self.results_label.setText(result_text)
-            self.statusBar().showMessage("Measurements calculated")
+            self.statusBar().showMessage("Measurements calculated successfully")
     
     def update_progress(self, value):
         """Update progress bar"""
@@ -814,9 +865,8 @@ class ModernObjectDetectionApp(QMainWindow):
     def update_pixel_cm_ratio(self, value):
         """Update pixel to cm ratio setting"""
         self.settings['pixel_cm_ratio'] = value / 100.0
-        self.ratio_value_label.setText(f"{value / 100.0:.2f}")
+        self.ratio_value_label.setText(f"{value / 100.0:.3f}")
     
-
     def closeEvent(self, event):
         """Handle application close"""
         self.stop_video()
