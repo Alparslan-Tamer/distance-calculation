@@ -684,10 +684,16 @@ class ModernObjectDetectionApp(QMainWindow):
         """Update video frame from thread"""
         self.current_frame = frame
         
-        # If we have a processed frame, show it instead of raw frame
-        if self.last_processed_frame is not None:
-            self.display_frame(self.last_processed_frame)
+        # If we have last measurements, draw them on the current frame
+        if self.last_measurements is not None and 'error' not in self.last_measurements:
+            # Create a copy of the frame to draw on
+            display_frame = frame.copy()
+            
+            # Draw measurement information on the frame
+            self.draw_measurements_on_frame(display_frame, self.last_measurements)
+            self.display_frame(display_frame)
         else:
+            # Show normal frame without measurements
             self.display_frame(frame)
     
     def read_video_frame(self):
@@ -760,12 +766,11 @@ class ModernObjectDetectionApp(QMainWindow):
             self.results_label.setText(f"Error: {measurements['error']}")
             self.statusBar().showMessage("Processing failed")
         else:
-            # Store the processed frame and measurements
-            self.last_processed_frame = result_frame.copy()
+            # Store the measurements for display on live video
             self.last_measurements = measurements
             
-            # Display result frame
-            self.display_frame(result_frame)
+            # For webcam, don't display the processed frame, let live video continue
+            # The measurements will be drawn on live video frames in update_video_frame
             
             # Update results with more detailed information
             result_text = f"""
@@ -791,6 +796,38 @@ class ModernObjectDetectionApp(QMainWindow):
             
             self.results_label.setText(result_text)
             self.statusBar().showMessage("Measurements calculated")
+    
+    def draw_measurements_on_frame(self, frame, measurements):
+        """Draw measurement results on the video frame"""
+        if 'error' in measurements:
+            return
+            
+        # Draw summary information in top-left corner
+        summary_text = f"Perimeter: {measurements['total_perimeter']:.1f} cm"
+        summary_text += f" | Corners: {measurements['corners']}"
+        summary_text += f" | Segments: {measurements['segments']}"
+        
+        # Background for summary text
+        (text_width, text_height), _ = cv2.getTextSize(summary_text, cv2.FONT_HERSHEY_SIMPLEX, 1.0, 2)
+        cv2.rectangle(frame, (10, 10), (10 + text_width + 20, 10 + text_height + 20), (0, 0, 0), -1)
+        
+        # Summary text
+        cv2.putText(frame, summary_text, (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        
+        # Draw segment details in top-right corner
+        y_offset = 40
+        for i, distance in enumerate(measurements['distances']):
+            segment_text = f"Segment {i+1}: {distance:.1f} cm"
+            
+            # Background for segment text
+            (seg_width, seg_height), _ = cv2.getTextSize(segment_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+            cv2.rectangle(frame, (frame.shape[1] - seg_width - 30, y_offset - 5), 
+                         (frame.shape[1] - 10, y_offset + seg_height + 5), (0, 0, 0), -1)
+            
+            # Segment text
+            cv2.putText(frame, segment_text, (frame.shape[1] - seg_width - 20, y_offset + seg_height), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+            y_offset += 30
     
     def update_progress(self, value):
         """Update progress bar"""
